@@ -82,10 +82,10 @@ var ManageAuthorPage = React.createClass({
 
   render: function() {
     return (
-      <AuthorForm 
-        author={this.state.author} 
-        onChange={this.setAuthorState} 
-        onSave={this.saveAuthor} 
+      <AuthorForm
+        author={this.state.author}
+        onChange={this.setAuthorState}
+        onSave={this.saveAuthor}
         errors={this.state.errors} />
     );
   }

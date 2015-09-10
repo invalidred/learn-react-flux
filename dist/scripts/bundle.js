@@ -334,7 +334,9 @@ function drainQueue() {
         currentQueue = queue;
         queue = [];
         while (++queueIndex < len) {
-            currentQueue[queueIndex].run();
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
         }
         queueIndex = -1;
         len = queue.length;
@@ -386,7 +388,6 @@ process.binding = function (name) {
     throw new Error('process.binding is not supported');
 };
 
-// TODO(shtylman)
 process.cwd = function () { return '/' };
 process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
@@ -403,11 +404,12 @@ process.umask = function() { return 0; };
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-module.exports.Dispatcher = require('./lib/Dispatcher')
+module.exports.Dispatcher = require('./lib/Dispatcher');
 
 },{"./lib/Dispatcher":4}],4:[function(require,module,exports){
-/*
- * Copyright (c) 2014, Facebook, Inc.
+(function (process){
+/**
+ * Copyright (c) 2014-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -415,14 +417,18 @@ module.exports.Dispatcher = require('./lib/Dispatcher')
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule Dispatcher
- * @typechecks
+ * 
+ * @preventMunge
  */
 
-"use strict";
+'use strict';
 
-var invariant = require('./invariant');
+exports.__esModule = true;
 
-var _lastID = 1;
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+var invariant = require('fbjs/lib/invariant');
+
 var _prefix = 'ID_';
 
 /**
@@ -472,7 +478,7 @@ var _prefix = 'ID_';
  *
  * This payload is digested by both stores:
  *
- *    CountryStore.dispatchToken = flightDispatcher.register(function(payload) {
+ *   CountryStore.dispatchToken = flightDispatcher.register(function(payload) {
  *     if (payload.actionType === 'country-update') {
  *       CountryStore.country = payload.selectedCountry;
  *     }
@@ -500,14 +506,10 @@ var _prefix = 'ID_';
  *     flightDispatcher.register(function(payload) {
  *       switch (payload.actionType) {
  *         case 'country-update':
+ *         case 'city-update':
  *           flightDispatcher.waitFor([CityStore.dispatchToken]);
  *           FlightPriceStore.price =
  *             getFlightPriceStore(CountryStore.country, CityStore.city);
- *           break;
- *
- *         case 'city-update':
- *           FlightPriceStore.price =
- *             FlightPriceStore(CountryStore.country, CityStore.city);
  *           break;
  *     }
  *   });
@@ -517,131 +519,109 @@ var _prefix = 'ID_';
  * `FlightPriceStore`.
  */
 
+var Dispatcher = (function () {
   function Dispatcher() {
-    this.$Dispatcher_callbacks = {};
-    this.$Dispatcher_isPending = {};
-    this.$Dispatcher_isHandled = {};
-    this.$Dispatcher_isDispatching = false;
-    this.$Dispatcher_pendingPayload = null;
+    _classCallCheck(this, Dispatcher);
+
+    this._callbacks = {};
+    this._isDispatching = false;
+    this._isHandled = {};
+    this._isPending = {};
+    this._lastID = 1;
   }
 
   /**
    * Registers a callback to be invoked with every dispatched payload. Returns
    * a token that can be used with `waitFor()`.
-   *
-   * @param {function} callback
-   * @return {string}
    */
-  Dispatcher.prototype.register=function(callback) {
-    var id = _prefix + _lastID++;
-    this.$Dispatcher_callbacks[id] = callback;
+
+  Dispatcher.prototype.register = function register(callback) {
+    var id = _prefix + this._lastID++;
+    this._callbacks[id] = callback;
     return id;
   };
 
   /**
    * Removes a callback based on its token.
-   *
-   * @param {string} id
    */
-  Dispatcher.prototype.unregister=function(id) {
-    invariant(
-      this.$Dispatcher_callbacks[id],
-      'Dispatcher.unregister(...): `%s` does not map to a registered callback.',
-      id
-    );
-    delete this.$Dispatcher_callbacks[id];
+
+  Dispatcher.prototype.unregister = function unregister(id) {
+    !this._callbacks[id] ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Dispatcher.unregister(...): `%s` does not map to a registered callback.', id) : invariant(false) : undefined;
+    delete this._callbacks[id];
   };
 
   /**
    * Waits for the callbacks specified to be invoked before continuing execution
    * of the current callback. This method should only be used by a callback in
    * response to a dispatched payload.
-   *
-   * @param {array<string>} ids
    */
-  Dispatcher.prototype.waitFor=function(ids) {
-    invariant(
-      this.$Dispatcher_isDispatching,
-      'Dispatcher.waitFor(...): Must be invoked while dispatching.'
-    );
+
+  Dispatcher.prototype.waitFor = function waitFor(ids) {
+    !this._isDispatching ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Dispatcher.waitFor(...): Must be invoked while dispatching.') : invariant(false) : undefined;
     for (var ii = 0; ii < ids.length; ii++) {
       var id = ids[ii];
-      if (this.$Dispatcher_isPending[id]) {
-        invariant(
-          this.$Dispatcher_isHandled[id],
-          'Dispatcher.waitFor(...): Circular dependency detected while ' +
-          'waiting for `%s`.',
-          id
-        );
+      if (this._isPending[id]) {
+        !this._isHandled[id] ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Dispatcher.waitFor(...): Circular dependency detected while ' + 'waiting for `%s`.', id) : invariant(false) : undefined;
         continue;
       }
-      invariant(
-        this.$Dispatcher_callbacks[id],
-        'Dispatcher.waitFor(...): `%s` does not map to a registered callback.',
-        id
-      );
-      this.$Dispatcher_invokeCallback(id);
+      !this._callbacks[id] ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Dispatcher.waitFor(...): `%s` does not map to a registered callback.', id) : invariant(false) : undefined;
+      this._invokeCallback(id);
     }
   };
 
   /**
    * Dispatches a payload to all registered callbacks.
-   *
-   * @param {object} payload
    */
-  Dispatcher.prototype.dispatch=function(payload) {
-    invariant(
-      !this.$Dispatcher_isDispatching,
-      'Dispatch.dispatch(...): Cannot dispatch in the middle of a dispatch.'
-    );
-    this.$Dispatcher_startDispatching(payload);
+
+  Dispatcher.prototype.dispatch = function dispatch(payload) {
+    !!this._isDispatching ? process.env.NODE_ENV !== 'production' ? invariant(false, 'Dispatch.dispatch(...): Cannot dispatch in the middle of a dispatch.') : invariant(false) : undefined;
+    this._startDispatching(payload);
     try {
-      for (var id in this.$Dispatcher_callbacks) {
-        if (this.$Dispatcher_isPending[id]) {
+      for (var id in this._callbacks) {
+        if (this._isPending[id]) {
           continue;
         }
-        this.$Dispatcher_invokeCallback(id);
+        this._invokeCallback(id);
       }
     } finally {
-      this.$Dispatcher_stopDispatching();
+      this._stopDispatching();
     }
   };
 
   /**
    * Is this Dispatcher currently dispatching.
-   *
-   * @return {boolean}
    */
-  Dispatcher.prototype.isDispatching=function() {
-    return this.$Dispatcher_isDispatching;
+
+  Dispatcher.prototype.isDispatching = function isDispatching() {
+    return this._isDispatching;
   };
 
   /**
    * Call the callback stored with the given id. Also do some internal
    * bookkeeping.
    *
-   * @param {string} id
    * @internal
    */
-  Dispatcher.prototype.$Dispatcher_invokeCallback=function(id) {
-    this.$Dispatcher_isPending[id] = true;
-    this.$Dispatcher_callbacks[id](this.$Dispatcher_pendingPayload);
-    this.$Dispatcher_isHandled[id] = true;
+
+  Dispatcher.prototype._invokeCallback = function _invokeCallback(id) {
+    this._isPending[id] = true;
+    this._callbacks[id](this._pendingPayload);
+    this._isHandled[id] = true;
   };
 
   /**
    * Set up bookkeeping needed when dispatching.
    *
-   * @param {object} payload
    * @internal
    */
-  Dispatcher.prototype.$Dispatcher_startDispatching=function(payload) {
-    for (var id in this.$Dispatcher_callbacks) {
-      this.$Dispatcher_isPending[id] = false;
-      this.$Dispatcher_isHandled[id] = false;
+
+  Dispatcher.prototype._startDispatching = function _startDispatching(payload) {
+    for (var id in this._callbacks) {
+      this._isPending[id] = false;
+      this._isHandled[id] = false;
     }
-    this.$Dispatcher_pendingPayload = payload;
-    this.$Dispatcher_isDispatching = true;
+    this._pendingPayload = payload;
+    this._isDispatching = true;
   };
 
   /**
@@ -649,17 +629,21 @@ var _prefix = 'ID_';
    *
    * @internal
    */
-  Dispatcher.prototype.$Dispatcher_stopDispatching=function() {
-    this.$Dispatcher_pendingPayload = null;
-    this.$Dispatcher_isDispatching = false;
+
+  Dispatcher.prototype._stopDispatching = function _stopDispatching() {
+    delete this._pendingPayload;
+    this._isDispatching = false;
   };
 
+  return Dispatcher;
+})();
 
 module.exports = Dispatcher;
-
-},{"./invariant":5}],5:[function(require,module,exports){
+}).call(this,require('_process'))
+},{"_process":2,"fbjs/lib/invariant":5}],5:[function(require,module,exports){
+(function (process){
 /**
- * Copyright (c) 2014, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -682,8 +666,8 @@ module.exports = Dispatcher;
  * will remain to ensure logic does not differ in production.
  */
 
-var invariant = function(condition, format, a, b, c, d, e, f) {
-  if (false) {
+var invariant = function (condition, format, a, b, c, d, e, f) {
+  if (process.env.NODE_ENV !== 'production') {
     if (format === undefined) {
       throw new Error('invariant requires an error message argument');
     }
@@ -692,17 +676,13 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
   if (!condition) {
     var error;
     if (format === undefined) {
-      error = new Error(
-        'Minified exception occurred; use the non-minified dev environment ' +
-        'for the full error message and additional helpful warnings.'
-      );
+      error = new Error('Minified exception occurred; use the non-minified dev environment ' + 'for the full error message and additional helpful warnings.');
     } else {
       var args = [a, b, c, d, e, f];
       var argIndex = 0;
-      error = new Error(
-        'Invariant Violation: ' +
-        format.replace(/%s/g, function() { return args[argIndex++]; })
-      );
+      error = new Error('Invariant Violation: ' + format.replace(/%s/g, function () {
+        return args[argIndex++];
+      }));
     }
 
     error.framesToPop = 1; // we don't care about invariant's own frame
@@ -711,8 +691,8 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 };
 
 module.exports = invariant;
-
-},{}],6:[function(require,module,exports){
+}).call(this,require('_process'))
+},{"_process":2}],6:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.1.4
  * http://jquery.com/
@@ -44997,7 +44977,7 @@ module.exports = require('./lib/React');
 },{"./lib/React":75}],203:[function(require,module,exports){
 /*
  * Toastr
- * Copyright 2012-2014 
+ * Copyright 2012-2015
  * Authors: John Papa, Hans Fjällemark, and Tim Ferrell.
  * All Rights Reserved.
  * Use, reproduction, distribution, and modification of this code is subject to the terms and
@@ -45007,6 +44987,7 @@ module.exports = require('./lib/React');
  *
  * Project: https://github.com/CodeSeven/toastr
  */
+/* global define */
 ; (function (define) {
     define(['jquery'], function ($) {
         return (function () {
@@ -45029,7 +45010,7 @@ module.exports = require('./lib/React');
                 options: {},
                 subscribe: subscribe,
                 success: success,
-                version: '2.1.0',
+                version: '2.1.2',
                 warning: warning
             };
 
@@ -45037,7 +45018,8 @@ module.exports = require('./lib/React');
 
             return toastr;
 
-            //#region Accessible Methods
+            ////////////////
+
             function error(message, title, optionsOverride) {
                 return notify({
                     type: toastType.error,
@@ -45094,10 +45076,10 @@ module.exports = require('./lib/React');
                 });
             }
 
-            function clear($toastElement) {
+            function clear($toastElement, clearOptions) {
                 var options = getOptions();
                 if (!$container) { getContainer(options); }
-                if (!clearToast($toastElement, options)) {
+                if (!clearToast($toastElement, options, clearOptions)) {
                     clearContainer(options);
                 }
             }
@@ -45113,9 +45095,8 @@ module.exports = require('./lib/React');
                     $container.remove();
                 }
             }
-            //#endregion
 
-            //#region Internal Methods
+            // internal functions
 
             function clearContainer (options) {
                 var toastsToClear = $container.children();
@@ -45124,8 +45105,9 @@ module.exports = require('./lib/React');
                 }
             }
 
-            function clearToast ($toastElement, options) {
-                if ($toastElement && $(':focus', $toastElement).length === 0) {
+            function clearToast ($toastElement, options, clearOptions) {
+                var force = clearOptions && clearOptions.force ? clearOptions.force : false;
+                if ($toastElement && (force || $(':focus', $toastElement).length === 0)) {
                     $toastElement[options.hideMethod]({
                         duration: options.hideDuration,
                         easing: options.hideEasing,
@@ -45162,6 +45144,9 @@ module.exports = require('./lib/React');
                     hideDuration: 1000,
                     hideEasing: 'swing',
                     onHidden: undefined,
+                    closeMethod: false,
+                    closeDuration: false,
+                    closeEasing: false,
 
                     extendedTimeOut: 1000,
                     iconClasses: {
@@ -45175,8 +45160,9 @@ module.exports = require('./lib/React');
                     timeOut: 5000, // Set timeOut and extendedTimeOut to 0 to make it sticky
                     titleClass: 'toast-title',
                     messageClass: 'toast-message',
+                    escapeHtml: false,
                     target: 'body',
-                    closeHtml: '<button>&times;</button>',
+                    closeHtml: '<button type="button">&times;</button>',
                     newestOnTop: true,
                     preventDuplicates: false,
                     progressBar: false
@@ -45189,109 +45175,44 @@ module.exports = require('./lib/React');
             }
 
             function notify(map) {
-                var options = getOptions(),
-                    iconClass = map.iconClass || options.iconClass;
-
-                if (options.preventDuplicates) {
-                    if (map.message === previousToast) {
-                        return;
-                    } else {
-                        previousToast = map.message;
-                    }
-                }
+                var options = getOptions();
+                var iconClass = map.iconClass || options.iconClass;
 
                 if (typeof (map.optionsOverride) !== 'undefined') {
                     options = $.extend(options, map.optionsOverride);
                     iconClass = map.optionsOverride.iconClass || iconClass;
                 }
 
+                if (shouldExit(options, map)) { return; }
+
                 toastId++;
 
                 $container = getContainer(options, true);
-                var intervalId = null,
-                    $toastElement = $('<div/>'),
-                    $titleElement = $('<div/>'),
-                    $messageElement = $('<div/>'),
-                    $progressElement = $('<div/>'),
-                    $closeElement = $(options.closeHtml),
-                    progressBar = {
-                        intervalId: null,
-                        hideEta: null,
-                        maxHideTime: null
-                    },
-                    response = {
-                        toastId: toastId,
-                        state: 'visible',
-                        startTime: new Date(),
-                        options: options,
-                        map: map
-                    };
 
-                if (map.iconClass) {
-                    $toastElement.addClass(options.toastClass).addClass(iconClass);
-                }
+                var intervalId = null;
+                var $toastElement = $('<div/>');
+                var $titleElement = $('<div/>');
+                var $messageElement = $('<div/>');
+                var $progressElement = $('<div/>');
+                var $closeElement = $(options.closeHtml);
+                var progressBar = {
+                    intervalId: null,
+                    hideEta: null,
+                    maxHideTime: null
+                };
+                var response = {
+                    toastId: toastId,
+                    state: 'visible',
+                    startTime: new Date(),
+                    options: options,
+                    map: map
+                };
 
-                if (map.title) {
-                    $titleElement.append(map.title).addClass(options.titleClass);
-                    $toastElement.append($titleElement);
-                }
+                personalizeToast();
 
-                if (map.message) {
-                    $messageElement.append(map.message).addClass(options.messageClass);
-                    $toastElement.append($messageElement);
-                }
+                displayToast();
 
-                if (options.closeButton) {
-                    $closeElement.addClass('toast-close-button').attr('role', 'button');
-                    $toastElement.prepend($closeElement);
-                }
-
-                if (options.progressBar) {
-                    $progressElement.addClass('toast-progress');
-                    $toastElement.prepend($progressElement);
-                }
-
-                $toastElement.hide();
-                if (options.newestOnTop) {
-                    $container.prepend($toastElement);
-                } else {
-                    $container.append($toastElement);
-                }
-                $toastElement[options.showMethod](
-                    {duration: options.showDuration, easing: options.showEasing, complete: options.onShown}
-                );
-
-                if (options.timeOut > 0) {
-                    intervalId = setTimeout(hideToast, options.timeOut);
-                    progressBar.maxHideTime = parseFloat(options.timeOut);
-                    progressBar.hideEta = new Date().getTime() + progressBar.maxHideTime;
-                    if (options.progressBar) {
-                        progressBar.intervalId = setInterval(updateProgress, 10);
-                    }
-                }
-
-                $toastElement.hover(stickAround, delayedHideToast);
-                if (!options.onclick && options.tapToDismiss) {
-                    $toastElement.click(hideToast);
-                }
-
-                if (options.closeButton && $closeElement) {
-                    $closeElement.click(function (event) {
-                        if (event.stopPropagation) {
-                            event.stopPropagation();
-                        } else if (event.cancelBubble !== undefined && event.cancelBubble !== true) {
-                            event.cancelBubble = true;
-                        }
-                        hideToast(true);
-                    });
-                }
-
-                if (options.onclick) {
-                    $toastElement.click(function () {
-                        options.onclick();
-                        hideToast();
-                    });
-                }
+                handleEvents();
 
                 publish(response);
 
@@ -45301,14 +45222,134 @@ module.exports = require('./lib/React');
 
                 return $toastElement;
 
+                function escapeHtml(source) {
+                    if (source == null)
+                        source = "";
+
+                    return new String(source)
+                        .replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                }
+
+                function personalizeToast() {
+                    setIcon();
+                    setTitle();
+                    setMessage();
+                    setCloseButton();
+                    setProgressBar();
+                    setSequence();
+                }
+
+                function handleEvents() {
+                    $toastElement.hover(stickAround, delayedHideToast);
+                    if (!options.onclick && options.tapToDismiss) {
+                        $toastElement.click(hideToast);
+                    }
+
+                    if (options.closeButton && $closeElement) {
+                        $closeElement.click(function (event) {
+                            if (event.stopPropagation) {
+                                event.stopPropagation();
+                            } else if (event.cancelBubble !== undefined && event.cancelBubble !== true) {
+                                event.cancelBubble = true;
+                            }
+                            hideToast(true);
+                        });
+                    }
+
+                    if (options.onclick) {
+                        $toastElement.click(function (event) {
+                            options.onclick(event);
+                            hideToast();
+                        });
+                    }
+                }
+
+                function displayToast() {
+                    $toastElement.hide();
+
+                    $toastElement[options.showMethod](
+                        {duration: options.showDuration, easing: options.showEasing, complete: options.onShown}
+                    );
+
+                    if (options.timeOut > 0) {
+                        intervalId = setTimeout(hideToast, options.timeOut);
+                        progressBar.maxHideTime = parseFloat(options.timeOut);
+                        progressBar.hideEta = new Date().getTime() + progressBar.maxHideTime;
+                        if (options.progressBar) {
+                            progressBar.intervalId = setInterval(updateProgress, 10);
+                        }
+                    }
+                }
+
+                function setIcon() {
+                    if (map.iconClass) {
+                        $toastElement.addClass(options.toastClass).addClass(iconClass);
+                    }
+                }
+
+                function setSequence() {
+                    if (options.newestOnTop) {
+                        $container.prepend($toastElement);
+                    } else {
+                        $container.append($toastElement);
+                    }
+                }
+
+                function setTitle() {
+                    if (map.title) {
+                        $titleElement.append(!options.escapeHtml ? map.title : escapeHtml(map.title)).addClass(options.titleClass);
+                        $toastElement.append($titleElement);
+                    }
+                }
+
+                function setMessage() {
+                    if (map.message) {
+                        $messageElement.append(!options.escapeHtml ? map.message : escapeHtml(map.message)).addClass(options.messageClass);
+                        $toastElement.append($messageElement);
+                    }
+                }
+
+                function setCloseButton() {
+                    if (options.closeButton) {
+                        $closeElement.addClass('toast-close-button').attr('role', 'button');
+                        $toastElement.prepend($closeElement);
+                    }
+                }
+
+                function setProgressBar() {
+                    if (options.progressBar) {
+                        $progressElement.addClass('toast-progress');
+                        $toastElement.prepend($progressElement);
+                    }
+                }
+
+                function shouldExit(options, map) {
+                    if (options.preventDuplicates) {
+                        if (map.message === previousToast) {
+                            return true;
+                        } else {
+                            previousToast = map.message;
+                        }
+                    }
+                    return false;
+                }
+
                 function hideToast(override) {
+                    var method = override && options.closeMethod !== false ? options.closeMethod : options.hideMethod;
+                    var duration = override && options.closeDuration !== false ?
+                        options.closeDuration : options.hideDuration;
+                    var easing = override && options.closeEasing !== false ? options.closeEasing : options.hideEasing;
                     if ($(':focus', $toastElement).length && !override) {
                         return;
                     }
                     clearTimeout(progressBar.intervalId);
-                    return $toastElement[options.hideMethod]({
-                        duration: options.hideDuration,
-                        easing: options.hideEasing,
+                    return $toastElement[method]({
+                        duration: duration,
+                        easing: easing,
                         complete: function () {
                             removeToast($toastElement);
                             if (options.onHidden && response.state !== 'hidden') {
@@ -45356,9 +45397,9 @@ module.exports = require('./lib/React');
                 $toastElement = null;
                 if ($container.children().length === 0) {
                     $container.remove();
+                    previousToast = undefined;
                 }
             }
-            //#endregion
 
         })();
     });
@@ -45366,7 +45407,7 @@ module.exports = require('./lib/React');
     if (typeof module !== 'undefined' && module.exports) { //Node
         module.exports = factory(require('jquery'));
     } else {
-        window['toastr'] = factory(window['jQuery']);
+        window.toastr = factory(window.jQuery);
     }
 }));
 
@@ -45409,7 +45450,7 @@ var AuthorActions = {
 
 module.exports = AuthorActions;
 
-},{"../api/authorApi":207,"../constants/actionTypes":224,"../dispatcher/appDispatcher":225}],205:[function(require,module,exports){
+},{"../api/authorApi":207,"../constants/actionTypes":225,"../dispatcher/appDispatcher":226}],205:[function(require,module,exports){
 "use strict";
 
 var Dispatcher = require('../dispatcher/appDispatcher');
@@ -45436,7 +45477,7 @@ var CourseActions = {
 
 module.exports = CourseActions;
 
-},{"../api/courseApi":209,"../constants/actionTypes":224,"../dispatcher/appDispatcher":225}],206:[function(require,module,exports){
+},{"../api/courseApi":209,"../constants/actionTypes":225,"../dispatcher/appDispatcher":226}],206:[function(require,module,exports){
 "use strict";
 
 var Dispatcher = require('../dispatcher/appDispatcher');
@@ -45458,7 +45499,7 @@ var InititalizeActions = {
 
 module.exports = InititalizeActions;
 
-},{"../api/authorApi":207,"../api/courseApi":209,"../constants/actionTypes":224,"../dispatcher/appDispatcher":225}],207:[function(require,module,exports){
+},{"../api/authorApi":207,"../api/courseApi":209,"../constants/actionTypes":225,"../dispatcher/appDispatcher":226}],207:[function(require,module,exports){
 "use strict";
 
 //This file is mocking a web API by hitting hard coded data.
@@ -45584,44 +45625,44 @@ module.exports = CourseApi;
 },{"./courseData":210,"lodash":7}],210:[function(require,module,exports){
 module.exports = {
   courses: [
-    {  
+    {
       id: "clean-code",
       title: "Clean Code: Writing Code for Humans",
       watchHref: "http://www.pluralsight.com/courses/writing-clean-code-humans",
-      author: {  
+      author: {
         id: "cory-house",
         name: "Cory House"
       },
       length: "3:10",
       category: "Software Practices"
     },
-    {  
+    {
       id: "architecture",
       title: "Architecting Applications for the Real World",
       watchHref: "http://www.pluralsight.com/courses/architecting-applications-dotnet",
-      author: {  
+      author: {
         id: "cory-house",
         name: "Cory House"
       },
       length: "2:52",
       category: "Software Architecture"
     },
-    {  
+    {
       id: "career-reboot-for-developer-mind",
       title: "Becoming an Outlier: Reprogramming the Developer Mind",
       watchHref: "http://www.pluralsight.com/courses/career-reboot-for-developer-mind",
-      author: {  
+      author: {
         id: "cory-house",
         name: "Cory House"
       },
       length: "2:30",
       category: "Career"
     },
-    {  
+    {
       id: "web-components-shadow-dom",
       title: "Web Component Fundamentals",
       watchHref: "http://www.pluralsight.com/courses/web-components-shadow-dom",
-      author: {  
+      author: {
         id: "cory-house",
         name: "Cory House"
       },
@@ -45853,7 +45894,7 @@ var AuthorPage = React.createClass({displayName: "AuthorPage",
 
 module.exports = AuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":228,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":229,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -45949,7 +45990,7 @@ var ManageAuthorPage = React.createClass({displayName: "ManageAuthorPage",
 
 module.exports = ManageAuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":228,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":229,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
 "use strict";
 var React = require('react');
 var Router = require('react-router');
@@ -46000,7 +46041,7 @@ var Input = React.createClass({displayName: "Input",
 
     return (
       React.createElement("div", {className: wrapperClass}, 
-        React.createElement("label", {htmlFor: this.props.name}, this.props.lable), 
+        React.createElement("label", {htmlFor: this.props.name}, this.props.label), 
         React.createElement("div", {className: "field"}, 
           React.createElement("input", {type: "text", 
             name: this.props.name, 
@@ -46019,6 +46060,68 @@ var Input = React.createClass({displayName: "Input",
 module.exports = Input;
 
 },{"react":202}],220:[function(require,module,exports){
+"use strict";
+
+var React = require('react');
+var Input = require('../common/textInput');
+
+var CourseForm = React.createClass({displayName: "CourseForm",
+
+  propTypes: {
+    course: React.PropTypes.object.isRequired,
+    onChange: React.PropTypes.func.isRequired,
+    onSave: React.PropTypes.func.isRequired,
+    error: React.PropTypes.object
+  },
+
+  render: function() {
+    return (
+      React.createElement("form", null, 
+        React.createElement(Input, {
+          name: "title", 
+          label: "Course Title", 
+          value: this.props.course.title, 
+          onChange: this.props.onChange, 
+          error: this.props.errors.title}), 
+
+        React.createElement(Input, {
+          name: "author", 
+          label: "Author Name", 
+          value: this.props.course.author.name, 
+          onChange: this.props.onChange, 
+          error: this.props.errors.author.name}), 
+
+        React.createElement(Input, {
+          name: "category", 
+          label: "Course Category", 
+          value: this.props.course.category, 
+          onChange: this.props.onChange, 
+          error: this.props.errors.category}), 
+
+        React.createElement(Input, {
+          name: "watchHref", 
+          label: "Course Link", 
+          value: this.props.course.watchHref, 
+          onChange: this.props.onChange, 
+          error: this.props.errors.category}), 
+
+        React.createElement(Input, {
+          name: "length", 
+          label: "Course Length", 
+          value: this.props.course.length, 
+          onChange: this.props.onChange, 
+          error: this.props.errors.length}), 
+
+        React.createElement("input", {type: "submit", 
+          value: "Save", 
+          className: "btn btn-default", 
+          onClick: this.props.onSave})
+      )
+    );
+  }
+});
+
+},{"../common/textInput":219,"react":202}],221:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46059,7 +46162,7 @@ var CourseList = React.createClass({displayName: "CourseList",
 
 module.exports = CourseList;
 
-},{"react":202,"react-router":33}],221:[function(require,module,exports){
+},{"react":202,"react-router":33}],222:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46105,15 +46208,53 @@ var CoursePage = React.createClass({displayName: "CoursePage",
 
 module.exports = CoursePage;
 
-},{"../../actions/courseActions":205,"../../stores/courseStore":229,"./courseList":220,"react":202,"react-router":33,"toastr":203}],222:[function(require,module,exports){
+},{"../../actions/courseActions":205,"../../stores/courseStore":230,"./courseList":221,"react":202,"react-router":33,"toastr":203}],223:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
+var CourseForm = require('./courseForm');
+var CourseStore = require('../../stores/courseStore');
 
 var ManageCourse = React.createClass({displayName: "ManageCourse",
+
+  getInitialState: function() {
+    return {
+      course: {
+        id: '',
+        title: '',
+        watchHref: '',
+        author: {
+          id: '',
+          name: ''
+        },
+        length: '',
+        category: ''
+      },
+      errors: {}
+    };
+  },
+
+  componentWillMount: function() {
+
+  },
+
+  onChange: function() {
+
+  },
+
+  onSave: function() {
+
+  },
+
   render: function() {
     return (
-      React.createElement("div", null
+      React.createElement("div", null, 
+        React.createElement("h1", null, "Manage Course"), 
+        React.createElement(CourseForm, {
+          onChange: this.onChange, 
+          onSave: this.onSave, 
+          course: this.state.course, 
+          errors: this.state.errors})
       )
     );
   }
@@ -46121,7 +46262,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
 
 module.exports = ManageCourse;
 
-},{"react":202}],223:[function(require,module,exports){
+},{"../../stores/courseStore":230,"./courseForm":220,"react":202}],224:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46142,7 +46283,7 @@ var Home = React.createClass({displayName: "Home",
 
 module.exports = Home;
 
-},{"react":202,"react-router":33}],224:[function(require,module,exports){
+},{"react":202,"react-router":33}],225:[function(require,module,exports){
 "use strict";
 
 var keyMirror = require('react/lib/keyMirror');
@@ -46157,7 +46298,7 @@ module.exports = keyMirror({
   DELETE_COURSE: null
 });
 
-},{"react/lib/keyMirror":187}],225:[function(require,module,exports){
+},{"react/lib/keyMirror":187}],226:[function(require,module,exports){
 /*
 * Copyright (c) 2015, Facebook, Inc.
 * All rights reserved.
@@ -46175,7 +46316,7 @@ var Dispatcher = require('flux').Dispatcher;
 
 module.exports = new Dispatcher();
 
-},{"flux":3}],226:[function(require,module,exports){
+},{"flux":3}],227:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46189,7 +46330,7 @@ Router.run(routes, function(Handler) {
 	React.render(React.createElement(Handler, null), document.getElementById('app'));
 });
 
-},{"./actions/initAction":206,"./routes":227,"react":202,"react-router":33}],227:[function(require,module,exports){
+},{"./actions/initAction":206,"./routes":228,"react":202,"react-router":33}],228:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46218,7 +46359,7 @@ var routes = (
 
 module.exports = routes;
 
-},{"./components/NotFoundPage":211,"./components/about/aboutPage":212,"./components/app":213,"./components/authors/authorPage":216,"./components/authors/manageAuthorPage":217,"./components/courses/coursePage":221,"./components/courses/manageCoursePage":222,"./components/homePage":223,"react":202,"react-router":33}],228:[function(require,module,exports){
+},{"./components/NotFoundPage":211,"./components/about/aboutPage":212,"./components/app":213,"./components/authors/authorPage":216,"./components/authors/manageAuthorPage":217,"./components/courses/coursePage":222,"./components/courses/manageCoursePage":223,"./components/homePage":224,"react":202,"react-router":33}],229:[function(require,module,exports){
 "use strict";
 
 var Dispatcher = require('../dispatcher/appDispatcher');
@@ -46282,7 +46423,7 @@ Dispatcher.register(function(action) {
 
 module.exports = AuthorStore;
 
-},{"../constants/actionTypes":224,"../dispatcher/appDispatcher":225,"events":1,"lodash":7,"object-assign":8}],229:[function(require,module,exports){
+},{"../constants/actionTypes":225,"../dispatcher/appDispatcher":226,"events":1,"lodash":7,"object-assign":8}],230:[function(require,module,exports){
 "use strict";
 
 var Dispatcher = require('../dispatcher/appDispatcher');
@@ -46333,4 +46474,4 @@ Dispatcher.register(function(action) {
 
 module.exports = CourseStore;
 
-},{"../constants/actionTypes":224,"../dispatcher/appDispatcher":225,"events":1,"lodash":7,"object-assign":8}]},{},[226]);
+},{"../constants/actionTypes":225,"../dispatcher/appDispatcher":226,"events":1,"lodash":7,"object-assign":8}]},{},[227]);
