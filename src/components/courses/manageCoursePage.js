@@ -19,12 +19,16 @@ var ManageCourse = React.createClass({
         length: '',
         category: ''
       },
-      errors: {}
+      errors: {},
+      dirty: false
     };
   },
 
   componentWillMount: function() {
-
+    var courseid = this.props.params.id;
+    if (courseid) {
+      this.setState({ course: CourseStore.getCourseById(courseid) });
+    }
   },
 
   onChange: function() {
@@ -32,7 +36,9 @@ var ManageCourse = React.createClass({
   },
 
   onSave: function() {
-
+    if (!dirty) {
+      return;
+    }
   },
 
   render: function() {

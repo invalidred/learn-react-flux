@@ -27,7 +27,7 @@ var CourseForm = React.createClass({
           label="Author Name"
           value={this.props.course.author.name}
           onChange={this.props.onChange}
-          error={this.props.errors.author.name} />
+          error={this.props.errors.name} />
 
         <Input
           name="category"
@@ -58,3 +58,5 @@ var CourseForm = React.createClass({
     );
   }
 });
+
+module.exports = CourseForm;
