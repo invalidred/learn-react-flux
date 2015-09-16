@@ -2,6 +2,7 @@
 
 var Dispatcher = require('../dispatcher/appDispatcher');
 var AuthorApi = require('../api/authorApi');
+var CourseApi = require('../api/courseApi');
 var ActionTypes = require('../constants/actionTypes');
 
 var AuthorActions = {
@@ -17,7 +18,7 @@ var AuthorActions = {
 
   updateAuthor: function(author) {
     var updatedAuthor = AuthorApi.saveAuthor(author);
-
+    CourseApi.updateAuthorInfo(author);
     Dispatcher.dispatch({
       actionType: ActionTypes.UPDATE_AUTHOR,
       author: updatedAuthor
@@ -25,8 +26,8 @@ var AuthorActions = {
   },
 
   deleteAuthor: function(id) {
-    AuthorApi.saveAuthor(id);
-
+    AuthorApi.deleteAuthor(id);
+    CourseApi.deleteCoursesForAuthor(id);
     Dispatcher.dispatch({
       actionType: ActionTypes.DELETE_AUTHOR,
       id: id

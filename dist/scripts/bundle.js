@@ -45375,6 +45375,7 @@ module.exports = require('./lib/React');
 
 var Dispatcher = require('../dispatcher/appDispatcher');
 var AuthorApi = require('../api/authorApi');
+var CourseApi = require('../api/courseApi');
 var ActionTypes = require('../constants/actionTypes');
 
 var AuthorActions = {
@@ -45390,7 +45391,7 @@ var AuthorActions = {
 
   updateAuthor: function(author) {
     var updatedAuthor = AuthorApi.saveAuthor(author);
-
+    CourseApi.updateAuthorInfo(author);
     Dispatcher.dispatch({
       actionType: ActionTypes.UPDATE_AUTHOR,
       author: updatedAuthor
@@ -45398,8 +45399,8 @@ var AuthorActions = {
   },
 
   deleteAuthor: function(id) {
-    AuthorApi.saveAuthor(id);
-
+    AuthorApi.deleteAuthor(id);
+    CourseApi.deleteCoursesForAuthor(id);
     Dispatcher.dispatch({
       actionType: ActionTypes.DELETE_AUTHOR,
       id: id
@@ -45409,7 +45410,7 @@ var AuthorActions = {
 
 module.exports = AuthorActions;
 
-},{"../api/authorApi":207,"../constants/actionTypes":225,"../dispatcher/appDispatcher":226}],205:[function(require,module,exports){
+},{"../api/authorApi":207,"../api/courseApi":209,"../constants/actionTypes":225,"../dispatcher/appDispatcher":226}],205:[function(require,module,exports){
 "use strict";
 
 var Dispatcher = require('../dispatcher/appDispatcher');
@@ -45421,16 +45422,24 @@ var CourseActions = {
     CourseApi.deleteCourse(id);
     Dispatcher.dispatch({
       actionType: ActionTypes.DELETE_COURSE,
-      courses: CourseApi.getAllCourses()
+      id: id
     });
   },
 
-  addCourse: function() {
-
+  addCourse: function(course) {
+    var newCourse = CourseApi.saveCourse(course);
+    Dispatcher.dispatch({
+      actionType: ActionTypes.CREATE_COURSE,
+      course: newCourse
+    });
   },
 
-  updateCourse: function() {
-
+  updateCourse: function(course) {
+    var updatedCourse = CourseApi.updateCourse(course);
+    Dispatcher.dispatch({
+      actionType: ActionTypes.UPDATE_COURSE,
+      course: updatedCourse
+    });
   }
 };
 
@@ -45576,6 +45585,18 @@ var CourseApi = {
   deleteCourse: function(id) {
     console.log('Imagine deleting course with id of ' + id + ' via AJAX call...');
     _.remove(courses, { id: id});
+  },
+
+  deleteCoursesForAuthor: function(authorid) {
+    _.remove(courses, { author: { id: authorid } });
+  },
+
+  updateAuthorInfo: function(author) {
+    courses.forEach(function(course) {
+      if (course.author.id === author.id) {
+        course.author.name = author.firstName + ' ' + author.lastName;
+      }
+    });
   }
 };
 
@@ -45853,7 +45874,7 @@ var AuthorPage = React.createClass({displayName: "AuthorPage",
 
 module.exports = AuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":229,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":230,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -45949,7 +45970,7 @@ var ManageAuthorPage = React.createClass({displayName: "ManageAuthorPage",
 
 module.exports = ManageAuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":229,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":230,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
 "use strict";
 var React = require('react');
 var Router = require('react-router');
@@ -46169,12 +46190,13 @@ var CoursePage = React.createClass({displayName: "CoursePage",
 
 module.exports = CoursePage;
 
-},{"../../actions/courseActions":205,"../../stores/courseStore":230,"./courseList":221,"react":202,"react-router":33,"toastr":203}],223:[function(require,module,exports){
+},{"../../actions/courseActions":205,"../../stores/courseStore":231,"./courseList":221,"react":202,"react-router":33,"toastr":203}],223:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
 var CourseForm = require('./courseForm');
 var CourseStore = require('../../stores/courseStore');
+var AuthorStore = require('../../stores/authorStore');
 
 var ManageCourse = React.createClass({displayName: "ManageCourse",
 
@@ -46191,6 +46213,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
         length: '',
         category: ''
       },
+      
       errors: {},
       dirty: false
     };
@@ -46208,7 +46231,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
   },
 
   onSave: function() {
-    if (!dirty) {
+    if (!this.state.dirty) {
       return;
     }
   },
@@ -46229,7 +46252,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
 
 module.exports = ManageCourse;
 
-},{"../../stores/courseStore":230,"./courseForm":220,"react":202}],224:[function(require,module,exports){
+},{"../../stores/authorStore":230,"../../stores/courseStore":231,"./courseForm":220,"react":202}],224:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46400,6 +46423,71 @@ var assign = require('object-assign');
 var _ = require('lodash');
 var CHANGE_EVENT = 'change';
 
+var _authors = [];
+
+var AuthorStore = assign({}, EventEmitter.prototype, {
+  addChangeListener: function(callback) {
+    this.on(CHANGE_EVENT, callback);
+  },
+
+  removeChangeListener: function(callback) {
+    this.removeListener(CHANGE_EVENT, callback);
+  },
+
+  emitChange: function() {
+    this.emit(CHANGE_EVENT);
+  },
+
+  getAllAuthors: function() {
+    return _authors;
+  },
+
+  getAuthorById: function(id) {
+    return _.find(_authors, {id: id});
+  }
+});
+
+
+Dispatcher.register(function(action) {
+  switch(action.actionType) {
+    case ActionTypes.INITIALIZE:
+      _authors = action.initialData.authors;
+      AuthorStore.emitChange();
+      break;
+    case ActionTypes.CREATE_AUTHOR:
+      _authors.push(action.author);
+      AuthorStore.emitChange();
+      break;
+    case ActionTypes.UPDATE_AUTHOR:
+      var existingAuthor = _.find(_authors, {id: action.author.id});
+      var existingAuthorIndex = _.indexOf(_authors, existingAuthor);
+      _authors.splice(existingAuthorIndex, 1, action.author);
+      AuthorStore.emitChange();
+      break;
+    case ActionTypes.DELETE_AUTHOR:
+      _.remove(_authors, function(author) {
+        return action.id === author.id;
+      });
+      AuthorStore.emitChange();
+      break;
+    default:
+      // no op
+  }
+});
+
+module.exports = AuthorStore;
+
+},{"../constants/actionTypes":225,"../dispatcher/appDispatcher":226,"events":1,"lodash":7,"object-assign":8}],231:[function(require,module,exports){
+"use strict";
+
+var Dispatcher = require('../dispatcher/appDispatcher');
+var ActionTypes = require('../constants/actionTypes');
+var EventEmitter = require('events').EventEmitter;
+var assign = require('object-assign');
+var _ = require('lodash');
+var AuthorStore = require('./AuthorStore');
+var CHANGE_EVENT = 'change';
+
 var _courses = [];
 
 var CourseStore = assign({}, EventEmitter.prototype, {
@@ -46430,8 +46518,30 @@ Dispatcher.register(function(action) {
       _courses = action.initialData.courses;
       CourseStore.emitChange();
       break;
+    case ActionTypes.CREATE_COURSE:
+      _courses.push(action.course);
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.UPDATE_COURSE:
+      var existingCourse = _.find(_courses, { id: action.course.id });
+      var existingCorseIndex = _.index(_courses, existingCourse);
+      _courses.splice(existingCorseIndex, 1, action.course);
+      CourseStore.emitChange();
+      break;
     case ActionTypes.DELETE_COURSE:
+      _courses = _courses.filter(function(course) {
+        return course.id !== action.id;
+      });
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.UPDATE_AUTHOR:
       _courses = action.courses;
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.DELETE_AUTHOR:
+      _courses = _courses.filter(function(course) {
+        return course.author.id !== action.id;
+      });
       CourseStore.emitChange();
       break;
     default:
@@ -46441,4 +46551,4 @@ Dispatcher.register(function(action) {
 
 module.exports = CourseStore;
 
-},{"../constants/actionTypes":225,"../dispatcher/appDispatcher":226,"events":1,"lodash":7,"object-assign":8}]},{},[227]);
+},{"../constants/actionTypes":225,"../dispatcher/appDispatcher":226,"./AuthorStore":229,"events":1,"lodash":7,"object-assign":8}]},{},[227]);

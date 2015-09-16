@@ -3,6 +3,7 @@
 var React = require('react');
 var CourseForm = require('./courseForm');
 var CourseStore = require('../../stores/courseStore');
+var AuthorStore = require('../../stores/authorStore');
 
 var ManageCourse = React.createClass({
 
@@ -19,6 +20,7 @@ var ManageCourse = React.createClass({
         length: '',
         category: ''
       },
+      
       errors: {},
       dirty: false
     };
@@ -36,7 +38,7 @@ var ManageCourse = React.createClass({
   },
 
   onSave: function() {
-    if (!dirty) {
+    if (!this.state.dirty) {
       return;
     }
   },

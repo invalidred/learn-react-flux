@@ -9,16 +9,24 @@ var CourseActions = {
     CourseApi.deleteCourse(id);
     Dispatcher.dispatch({
       actionType: ActionTypes.DELETE_COURSE,
-      courses: CourseApi.getAllCourses()
+      id: id
     });
   },
 
-  addCourse: function() {
-
+  addCourse: function(course) {
+    var newCourse = CourseApi.saveCourse(course);
+    Dispatcher.dispatch({
+      actionType: ActionTypes.CREATE_COURSE,
+      course: newCourse
+    });
   },
 
-  updateCourse: function() {
-
+  updateCourse: function(course) {
+    var updatedCourse = CourseApi.updateCourse(course);
+    Dispatcher.dispatch({
+      actionType: ActionTypes.UPDATE_COURSE,
+      course: updatedCourse
+    });
   }
 };
 

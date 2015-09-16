@@ -41,6 +41,18 @@ var CourseApi = {
   deleteCourse: function(id) {
     console.log('Imagine deleting course with id of ' + id + ' via AJAX call...');
     _.remove(courses, { id: id});
+  },
+
+  deleteCoursesForAuthor: function(authorid) {
+    _.remove(courses, { author: { id: authorid } });
+  },
+
+  updateAuthorInfo: function(author) {
+    courses.forEach(function(course) {
+      if (course.author.id === author.id) {
+        course.author.name = author.firstName + ' ' + author.lastName;
+      }
+    });
   }
 };
 

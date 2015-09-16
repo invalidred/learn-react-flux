@@ -5,6 +5,7 @@ var ActionTypes = require('../constants/actionTypes');
 var EventEmitter = require('events').EventEmitter;
 var assign = require('object-assign');
 var _ = require('lodash');
+var AuthorStore = require('./AuthorStore');
 var CHANGE_EVENT = 'change';
 
 var _courses = [];
@@ -37,8 +38,30 @@ Dispatcher.register(function(action) {
       _courses = action.initialData.courses;
       CourseStore.emitChange();
       break;
+    case ActionTypes.CREATE_COURSE:
+      _courses.push(action.course);
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.UPDATE_COURSE:
+      var existingCourse = _.find(_courses, { id: action.course.id });
+      var existingCorseIndex = _.index(_courses, existingCourse);
+      _courses.splice(existingCorseIndex, 1, action.course);
+      CourseStore.emitChange();
+      break;
     case ActionTypes.DELETE_COURSE:
+      _courses = _courses.filter(function(course) {
+        return course.id !== action.id;
+      });
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.UPDATE_AUTHOR:
       _courses = action.courses;
+      CourseStore.emitChange();
+      break;
+    case ActionTypes.DELETE_AUTHOR:
+      _courses = _courses.filter(function(course) {
+        return course.author.id !== action.id;
+      });
       CourseStore.emitChange();
       break;
     default:
