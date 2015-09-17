@@ -33,8 +33,12 @@ var ManageCourse = React.createClass({
     }
   },
 
-  onChange: function() {
-
+  setCourseState: function(event) {
+    this.state.dirty = true;
+    var field = event.target.name,
+        value = event.target.value;
+    this.state.course[field] = value;
+    this.setState({ course: this.state.course });
   },
 
   onSave: function() {
@@ -48,7 +52,7 @@ var ManageCourse = React.createClass({
       <div>
         <h1>Manage Course</h1>
         <CourseForm
-          onChange={this.onChange}
+          onChange={this.setCourseState}
           onSave={this.onSave}
           course={this.state.course}
           errors={this.state.errors} />

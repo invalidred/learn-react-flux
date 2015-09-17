@@ -7,6 +7,7 @@ var CourseForm = React.createClass({
 
   propTypes: {
     course: React.PropTypes.object.isRequired,
+    authors: React.PropTypes.array.isRequired,
     onChange: React.PropTypes.func.isRequired,
     onSave: React.PropTypes.func.isRequired,
     error: React.PropTypes.object

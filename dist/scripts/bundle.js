@@ -46049,6 +46049,7 @@ var CourseForm = React.createClass({displayName: "CourseForm",
 
   propTypes: {
     course: React.PropTypes.object.isRequired,
+    authors: React.PropTypes.array.isRequired,
     onChange: React.PropTypes.func.isRequired,
     onSave: React.PropTypes.func.isRequired,
     error: React.PropTypes.object
@@ -46226,8 +46227,12 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
     }
   },
 
-  onChange: function() {
-
+  setCourseState: function(event) {
+    this.state.dirty = true;
+    var field = event.target.name,
+        value = event.target.value;
+    this.state.course[field] = value;
+    this.setState({ course: this.state.course });
   },
 
   onSave: function() {
@@ -46241,7 +46246,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
       React.createElement("div", null, 
         React.createElement("h1", null, "Manage Course"), 
         React.createElement(CourseForm, {
-          onChange: this.onChange, 
+          onChange: this.setCourseState, 
           onSave: this.onSave, 
           course: this.state.course, 
           errors: this.state.errors})
