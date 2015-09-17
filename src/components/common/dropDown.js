@@ -10,7 +10,7 @@ var DropDown = React.createClass({
     data: React.PropTypes.array.isRequired,
     dataKey: React.PropTypes.string.isRequired,
     dataValue: React.PropTypes.string.isRequired,
-    selectedKey: React.PropTypes.string.isRequired,
+    selectedKey: React.PropTypes.string,
     firstItem: React.PropTypes.string,
     error: React.PropTypes.string
   },

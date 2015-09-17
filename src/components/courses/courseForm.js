@@ -2,6 +2,7 @@
 
 var React = require('react');
 var Input = require('../common/textInput');
+var DropDown = require('../common/dropDown');
 
 var CourseForm = React.createClass({
 
@@ -23,12 +24,16 @@ var CourseForm = React.createClass({
           onChange={this.props.onChange}
           error={this.props.errors.title} />
 
-        <Input
-          name="author"
-          label="Author Name"
-          value={this.props.course.author.name}
-          onChange={this.props.onChange}
-          error={this.props.errors.name} />
+        <DropDown
+          name: "author"
+          label: "Author"
+          onChange: {this.props.onChange}
+          data: {this.props.authors}
+          dataKey: "id"
+          dataValue: "name"
+          selectedKey: {this.props.course.author.id},
+          firstItem: "Please Select",
+          error: {this.props.errors.author} />
 
         <Input
           name="category"

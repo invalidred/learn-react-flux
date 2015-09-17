@@ -20,7 +20,7 @@ var ManageCourse = React.createClass({
         length: '',
         category: ''
       },
-      
+      authors:[],
       errors: {},
       dirty: false
     };
@@ -31,6 +31,8 @@ var ManageCourse = React.createClass({
     if (courseid) {
       this.setState({ course: CourseStore.getCourseById(courseid) });
     }
+
+    this.setState({ authors: AuthorStore.getAllAuthors() });
   },
 
   setCourseState: function(event) {
@@ -55,6 +57,7 @@ var ManageCourse = React.createClass({
           onChange={this.setCourseState}
           onSave={this.onSave}
           course={this.state.course}
+          authors={this.state.authors}
           errors={this.state.errors} />
       </div>
     );
