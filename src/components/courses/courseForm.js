@@ -25,15 +25,14 @@ var CourseForm = React.createClass({
           error={this.props.errors.title} />
 
         <DropDown
-          name: "author"
-          label: "Author"
-          onChange: {this.props.onChange}
-          data: {this.props.authors}
-          dataKey: "id"
-          dataValue: "name"
-          selectedKey: {this.props.course.author.id},
-          firstItem: "Please Select",
-          error: {this.props.errors.author} />
+          name="author"
+          label="Author"
+          onChange={this.props.onChange}
+          data={this.props.authors}
+          dataKey="id"
+          dataValue="name"
+          selectedItemKey={this.props.course.author.id}
+          error={this.props.errors.author} />
 
         <Input
           name="category"

@@ -20,7 +20,7 @@ var ManageCourse = React.createClass({
         length: '',
         category: ''
       },
-      authors:[],
+      authors: [],
       errors: {},
       dirty: false
     };
@@ -32,14 +32,30 @@ var ManageCourse = React.createClass({
       this.setState({ course: CourseStore.getCourseById(courseid) });
     }
 
-    this.setState({ authors: AuthorStore.getAllAuthors() });
+    this.state.authors = AuthorStore.getAllAuthors().map(function(author) {
+      return {
+        id: author.id,
+        name: author.firstName + ' ' + author.lastName
+      };
+    });
+
+    this.setState({ authors: this.state.authors });
   },
 
   setCourseState: function(event) {
     this.state.dirty = true;
     var field = event.target.name,
         value = event.target.value;
-    this.state.course[field] = value;
+    
+    if (field === 'author') {
+      this.state.course.author.id = value;
+      this.state.course.author.name = this.state.authors.filter(function(author) {
+        return author.id === value;
+      })[0].name;
+    } else {
+      this.state.course[field] = value;
+    }
+
     this.setState({ course: this.state.course });
   },
 
