@@ -27,9 +27,10 @@ var ManageCourse = React.createClass({
   },
 
   componentWillMount: function() {
+    AuthorStore.addChangeListener(this._onChange);
     var courseid = this.props.params.id;
     if (courseid) {
-      this.setState({ course: CourseStore.getCourseById(courseid) });
+      this.state.course = CourseStore.getCourseById(courseid);
     }
 
     this.state.authors = AuthorStore.getAllAuthors().map(function(author) {
@@ -39,7 +40,15 @@ var ManageCourse = React.createClass({
       };
     });
 
-    this.setState({ authors: this.state.authors });
+    this.setState(this.state);
+  },
+
+  componentWillUnmount: function() {
+    AuthorStore.removeChangeListener(this._onChange);
+  },
+
+  _onChange: function() {
+    this.setState({ authors: AuthorStore.getAllAuthors() });
   },
 
   setCourseState: function(event) {
@@ -47,11 +56,9 @@ var ManageCourse = React.createClass({
     var field = event.target.name,
         value = event.target.value;
     
-    if (field === 'author') {
-      this.state.course.author.id = value;
-      this.state.course.author.name = this.state.authors.filter(function(author) {
-        return author.id === value;
-      })[0].name;
+    if (field === 'author' && event.target.type === 'select-one') {
+      this.state.course.author.id = event.target.selectedOptions[0].value;
+      this.state.course.author.name = event.target.selectedOptions[0].text;
     } else {
       this.state.course[field] = value;
     }

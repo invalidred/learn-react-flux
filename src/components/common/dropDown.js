@@ -9,7 +9,7 @@ var DropDown = React.createClass({
     onChange: React.PropTypes.func.isRequired,
     data: React.PropTypes.array.isRequired,
     dataKey: React.PropTypes.string.isRequired,
-    selectedItemKey: React.PropTypes.string,
+    selectedItem: React.PropTypes.string,
     firstItem: React.PropTypes.string,
     error: React.PropTypes.string
   },
@@ -17,10 +17,10 @@ var DropDown = React.createClass({
   render: function() {
 
     var generateOption = function(item) {
+      var key = item[this.props.dataKey],
+          value = item[this.props.dataValue];
       return (
-        <option value={item[this.props.dataKey]}>
-          {item[this.props.dataValue]}
-        </option>
+        <option key={key} value={key}>{value}</option>
       );
     };
 
@@ -34,7 +34,7 @@ var DropDown = React.createClass({
         <label htmlFor={this.props.name}>{this.props.label}</label>
         <div className="field">
           <select name={this.props.name}
-            value={this.props.selectedItemKey}
+            value={this.props.selectedItem}
             className="form-control"
             onChange={this.props.onChange}>
             {this.props.data.map(generateOption, this)}

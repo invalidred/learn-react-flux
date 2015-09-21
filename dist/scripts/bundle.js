@@ -334,7 +334,9 @@ function drainQueue() {
         currentQueue = queue;
         queue = [];
         while (++queueIndex < len) {
-            currentQueue[queueIndex].run();
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
         }
         queueIndex = -1;
         len = queue.length;
@@ -386,7 +388,6 @@ process.binding = function (name) {
     throw new Error('process.binding is not supported');
 };
 
-// TODO(shtylman)
 process.cwd = function () { return '/' };
 process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
@@ -45874,7 +45875,7 @@ var AuthorPage = React.createClass({displayName: "AuthorPage",
 
 module.exports = AuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":231,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":230,"./authorList":215,"react":202,"react-router":33}],217:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -45970,7 +45971,7 @@ var ManageAuthorPage = React.createClass({displayName: "ManageAuthorPage",
 
 module.exports = ManageAuthorPage;
 
-},{"../../actions/authorActions":204,"../../stores/authorStore":231,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
+},{"../../actions/authorActions":204,"../../stores/authorStore":230,"./authorForm":214,"react":202,"react-router":33,"toastr":203}],218:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -45982,7 +45983,7 @@ var DropDown = React.createClass({displayName: "DropDown",
     onChange: React.PropTypes.func.isRequired,
     data: React.PropTypes.array.isRequired,
     dataKey: React.PropTypes.string.isRequired,
-    selectedItemKey: React.PropTypes.string,
+    selectedItem: React.PropTypes.string,
     firstItem: React.PropTypes.string,
     error: React.PropTypes.string
   },
@@ -45990,10 +45991,10 @@ var DropDown = React.createClass({displayName: "DropDown",
   render: function() {
 
     var generateOption = function(item) {
+      var key = item[this.props.dataKey],
+          value = item[this.props.dataValue];
       return (
-        React.createElement("option", {value: item[this.props.dataKey]}, 
-          item[this.props.dataValue]
-        )
+        React.createElement("option", {key: key, value: key}, value)
       );
     };
 
@@ -46007,7 +46008,7 @@ var DropDown = React.createClass({displayName: "DropDown",
         React.createElement("label", {htmlFor: this.props.name}, this.props.label), 
         React.createElement("div", {className: "field"}, 
           React.createElement("select", {name: this.props.name, 
-            value: this.props.selectedItemKey, 
+            value: this.props.selectedItem, 
             className: "form-control", 
             onChange: this.props.onChange}, 
             this.props.data.map(generateOption, this)
@@ -46124,7 +46125,7 @@ var CourseForm = React.createClass({displayName: "CourseForm",
           data: this.props.authors, 
           dataKey: "id", 
           dataValue: "name", 
-          selectedItemKey: this.props.course.author.id, 
+          selectedItem: this.props.course.author.id, 
           error: this.props.errors.author}), 
 
         React.createElement(Input, {
@@ -46246,7 +46247,7 @@ var CoursePage = React.createClass({displayName: "CoursePage",
 
 module.exports = CoursePage;
 
-},{"../../actions/courseActions":205,"../../stores/courseStore":232,"./courseList":222,"react":202,"react-router":33,"toastr":203}],224:[function(require,module,exports){
+},{"../../actions/courseActions":205,"../../stores/courseStore":231,"./courseList":222,"react":202,"react-router":33,"toastr":203}],224:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46276,9 +46277,10 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
   },
 
   componentWillMount: function() {
+    AuthorStore.addChangeListener(this._onChange);
     var courseid = this.props.params.id;
     if (courseid) {
-      this.setState({ course: CourseStore.getCourseById(courseid) });
+      this.state.course = CourseStore.getCourseById(courseid);
     }
 
     this.state.authors = AuthorStore.getAllAuthors().map(function(author) {
@@ -46288,7 +46290,15 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
       };
     });
 
-    this.setState({ authors: this.state.authors });
+    this.setState(this.state);
+  },
+
+  componentWillUnmount: function() {
+    AuthorStore.removeChangeListener(this._onChange);
+  },
+
+  _onChange: function() {
+    this.setState({ authors: AuthorStore.getAllAuthors() });
   },
 
   setCourseState: function(event) {
@@ -46296,11 +46306,9 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
     var field = event.target.name,
         value = event.target.value;
     
-    if (field === 'author') {
-      this.state.course.author.id = value;
-      this.state.course.author.name = this.state.authors.filter(function(author) {
-        return author.id === value;
-      })[0].name;
+    if (field === 'author' && event.target.type === 'select-one') {
+      this.state.course.author.id = event.target.selectedOptions[0].value;
+      this.state.course.author.name = event.target.selectedOptions[0].text;
     } else {
       this.state.course[field] = value;
     }
@@ -46331,7 +46339,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
 
 module.exports = ManageCourse;
 
-},{"../../stores/authorStore":231,"../../stores/courseStore":232,"./courseForm":221,"react":202}],225:[function(require,module,exports){
+},{"../../stores/authorStore":230,"../../stores/courseStore":231,"./courseForm":221,"react":202}],225:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46500,71 +46508,7 @@ var ActionTypes = require('../constants/actionTypes');
 var EventEmitter = require('events').EventEmitter;
 var assign = require('object-assign');
 var _ = require('lodash');
-var CHANGE_EVENT = 'change';
-
-var _authors = [];
-
-var AuthorStore = assign({}, EventEmitter.prototype, {
-  addChangeListener: function(callback) {
-    this.on(CHANGE_EVENT, callback);
-  },
-
-  removeChangeListener: function(callback) {
-    this.removeListener(CHANGE_EVENT, callback);
-  },
-
-  emitChange: function() {
-    this.emit(CHANGE_EVENT);
-  },
-
-  getAllAuthors: function() {
-    return _authors;
-  },
-
-  getAuthorById: function(id) {
-    return _.find(_authors, {id: id});
-  }
-});
-
-
-Dispatcher.register(function(action) {
-  switch(action.actionType) {
-    case ActionTypes.INITIALIZE:
-      _authors = action.initialData.authors;
-      AuthorStore.emitChange();
-      break;
-    case ActionTypes.CREATE_AUTHOR:
-      _authors.push(action.author);
-      AuthorStore.emitChange();
-      break;
-    case ActionTypes.UPDATE_AUTHOR:
-      var existingAuthor = _.find(_authors, {id: action.author.id});
-      var existingAuthorIndex = _.indexOf(_authors, existingAuthor);
-      _authors.splice(existingAuthorIndex, 1, action.author);
-      AuthorStore.emitChange();
-      break;
-    case ActionTypes.DELETE_AUTHOR:
-      _.remove(_authors, function(author) {
-        return action.id === author.id;
-      });
-      AuthorStore.emitChange();
-      break;
-    default:
-      // no op
-  }
-});
-
-module.exports = AuthorStore;
-
-},{"../constants/actionTypes":226,"../dispatcher/appDispatcher":227,"events":1,"lodash":7,"object-assign":8}],232:[function(require,module,exports){
-"use strict";
-
-var Dispatcher = require('../dispatcher/appDispatcher');
-var ActionTypes = require('../constants/actionTypes');
-var EventEmitter = require('events').EventEmitter;
-var assign = require('object-assign');
-var _ = require('lodash');
-var AuthorStore = require('./AuthorStore');
+var AuthorStore = require('./authorStore');
 var CHANGE_EVENT = 'change';
 
 var _courses = [];
@@ -46630,4 +46574,4 @@ Dispatcher.register(function(action) {
 
 module.exports = CourseStore;
 
-},{"../constants/actionTypes":226,"../dispatcher/appDispatcher":227,"./AuthorStore":230,"events":1,"lodash":7,"object-assign":8}]},{},[228]);
+},{"../constants/actionTypes":226,"../dispatcher/appDispatcher":227,"./authorStore":230,"events":1,"lodash":7,"object-assign":8}]},{},[228]);

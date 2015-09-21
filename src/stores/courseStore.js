@@ -5,7 +5,7 @@ var ActionTypes = require('../constants/actionTypes');
 var EventEmitter = require('events').EventEmitter;
 var assign = require('object-assign');
 var _ = require('lodash');
-var AuthorStore = require('./AuthorStore');
+var AuthorStore = require('./authorStore');
 var CHANGE_EVENT = 'change';
 
 var _courses = [];

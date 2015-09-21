@@ -31,7 +31,7 @@ var CourseForm = React.createClass({
           data={this.props.authors}
           dataKey="id"
           dataValue="name"
-          selectedItemKey={this.props.course.author.id}
+          selectedItem={this.props.course.author.id}
           error={this.props.errors.author} />
 
         <Input
