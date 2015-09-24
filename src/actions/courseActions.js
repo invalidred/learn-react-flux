@@ -22,7 +22,7 @@ var CourseActions = {
   },
 
   updateCourse: function(course) {
-    var updatedCourse = CourseApi.updateCourse(course);
+    var updatedCourse = CourseApi.saveCourse(course);
     Dispatcher.dispatch({
       actionType: ActionTypes.UPDATE_COURSE,
       course: updatedCourse

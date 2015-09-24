@@ -1,11 +1,18 @@
 "use strict";
 
 var React = require('react');
+var Router = require('react-router');
 var CourseForm = require('./courseForm');
 var CourseStore = require('../../stores/courseStore');
 var AuthorStore = require('../../stores/authorStore');
+var CourseActions = require('../../actions/courseActions');
+var toastr = require('toastr');
 
 var ManageCourse = React.createClass({
+
+  mixins: [
+    Router.Navigation
+  ],
 
   getInitialState: function() {
     return {
@@ -66,10 +73,39 @@ var ManageCourse = React.createClass({
     this.setState({ course: this.state.course });
   },
 
-  onSave: function() {
-    if (!this.state.dirty) {
+  isValidForm: function() {
+    var isValidForm = true;
+
+    if (this.state.course.title.length < 3) {
+      this.state.errors.title = 'title should be greater than 3 characters';
+      isValidForm = false;
+    }
+
+    if (this.state.course.category.length < 3) {
+      this.state.errors.category = 'category should be greater than 3 chars';
+      isValidForm = false;
+    }
+
+    this.setState({ errors: this.state.errors });
+
+    return isValidForm;
+  },
+
+  onSave: function(event) {
+    event.preventDefault();
+    if (!this.isValidForm()) {
       return;
     }
+
+    if (this.state.course.id) {
+      CourseActions.updateCourse(this.state.course);
+    } else {
+      CourseActions.addCourse(this.state.course);
+    }
+
+    this.setState({dirty: false});
+    toastr.success('course saved!!!');
+    this.transitionTo('courses');
   },
 
   render: function() {

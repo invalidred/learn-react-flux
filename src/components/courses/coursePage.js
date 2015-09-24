@@ -21,6 +21,10 @@ var CoursePage = React.createClass({
     toastr.success('Course Deleted');
   },
 
+  componentWillUnmount: function() {
+    CourseStore.removeChangeListener(this._onChange);
+  },
+
   componentWillMount: function() {
     CourseStore.addChangeListener(this._onChange);
   },

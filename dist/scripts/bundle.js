@@ -45436,7 +45436,7 @@ var CourseActions = {
   },
 
   updateCourse: function(course) {
-    var updatedCourse = CourseApi.updateCourse(course);
+    var updatedCourse = CourseApi.saveCourse(course);
     Dispatcher.dispatch({
       actionType: ActionTypes.UPDATE_COURSE,
       course: updatedCourse
@@ -46225,6 +46225,10 @@ var CoursePage = React.createClass({displayName: "CoursePage",
     toastr.success('Course Deleted');
   },
 
+  componentWillUnmount: function() {
+    CourseStore.removeChangeListener(this._onChange);
+  },
+
   componentWillMount: function() {
     CourseStore.addChangeListener(this._onChange);
   },
@@ -46251,11 +46255,18 @@ module.exports = CoursePage;
 "use strict";
 
 var React = require('react');
+var Router = require('react-router');
 var CourseForm = require('./courseForm');
 var CourseStore = require('../../stores/courseStore');
 var AuthorStore = require('../../stores/authorStore');
+var CourseActions = require('../../actions/courseActions');
+var toastr = require('toastr');
 
 var ManageCourse = React.createClass({displayName: "ManageCourse",
+
+  mixins: [
+    Router.Navigation
+  ],
 
   getInitialState: function() {
     return {
@@ -46316,10 +46327,39 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
     this.setState({ course: this.state.course });
   },
 
-  onSave: function() {
-    if (!this.state.dirty) {
+  isValidForm: function() {
+    var isValidForm = true;
+
+    if (this.state.course.title.length < 3) {
+      this.state.errors.title = 'title should be greater than 3 characters';
+      isValidForm = false;
+    }
+
+    if (this.state.course.category.length < 3) {
+      this.state.errors.category = 'category should be greater than 3 chars';
+      isValidForm = false;
+    }
+
+    this.setState({ errors: this.state.errors });
+
+    return isValidForm;
+  },
+
+  onSave: function(event) {
+    event.preventDefault();
+    if (!this.isValidForm()) {
       return;
     }
+
+    if (this.state.course.id) {
+      CourseActions.updateCourse(this.state.course);
+    } else {
+      CourseActions.addCourse(this.state.course);
+    }
+
+    this.setState({dirty: false});
+    toastr.success('course saved!!!');
+    this.transitionTo('courses');
   },
 
   render: function() {
@@ -46339,7 +46379,7 @@ var ManageCourse = React.createClass({displayName: "ManageCourse",
 
 module.exports = ManageCourse;
 
-},{"../../stores/authorStore":230,"../../stores/courseStore":231,"./courseForm":221,"react":202}],225:[function(require,module,exports){
+},{"../../actions/courseActions":205,"../../stores/authorStore":230,"../../stores/courseStore":231,"./courseForm":221,"react":202,"react-router":33,"toastr":203}],225:[function(require,module,exports){
 "use strict";
 
 var React = require('react');
@@ -46547,7 +46587,7 @@ Dispatcher.register(function(action) {
       break;
     case ActionTypes.UPDATE_COURSE:
       var existingCourse = _.find(_courses, { id: action.course.id });
-      var existingCorseIndex = _.index(_courses, existingCourse);
+      var existingCorseIndex = _.indexOf(_courses, existingCourse);
       _courses.splice(existingCorseIndex, 1, action.course);
       CourseStore.emitChange();
       break;
